@@ -7,6 +7,8 @@ const jwt = require("jsonwebtoken");
 const { Server } = require("socket.io");
 const http = require("http");
 
+const keep_alive = require('./keep_alive.js')
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
