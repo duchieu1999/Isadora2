@@ -1,7 +1,7 @@
 {
-  "name": "telegram-bot-server",
+  "name": "farm-game-api",
   "version": "1.0.0",
-  "description": "Server for Telegram Bot with MongoDB, Express, and Socket.io",
+  "description": "API server for Farm Game using Node.js, Express, and MongoDB",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,11 +12,16 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.0",
-    "mongoose": "^7.0.3",
-    "socket.io": "^4.6.1"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.2.3"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
-  }
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": ["farm", "game", "api", "express", "mongodb"],
+  "author": "",
+  "license": "MIT"
 }
