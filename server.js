@@ -3,12 +3,11 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 const keep_alive = require('./keep_alive.js')
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+const JWT_SECRET = 'b$g5@8^1!XzPq6#Lm@+';
 
 // Middleware
 app.use(cors());
