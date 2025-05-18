@@ -1,27 +1,20 @@
 {
-  "name": "farm-game-api",
+  "name": "whack-chicken-multiplayer",
   "version": "1.0.0",
-  "description": "API server for Farm Game using Node.js, Express, and MongoDB",
+  "description": "Trò chơi đập gà multiplayer",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^7.2.3"
+    "socket.io": "^4.7.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": ">=16.0.0"
-  },
-  "keywords": ["farm", "game", "api", "express", "mongodb"],
-  "author": "",
-  "license": "MIT"
+    "node": ">=14.0.0"
+  }
 }
