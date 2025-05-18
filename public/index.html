@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đập Gà Multiplayer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700&display=swap');
+
+        :root {
+            --primary: #FF9633;
+            --secondary: #FFC93C;
+            --background: #FFFBE9;
+            --hole: #8B4513;
+            --grass: #66a103;
+        }
+
+        .dark {
+            --primary: #FF9633;
+            --secondary: #FFC93C;
+            --background: #1e1e1e;
+            --hole: #502912;
+            --grass: #446b02;
+        }
+
+        body {
+            font-family: 'Baloo 2', cursive;
+            background-color: var(--background);
+            transition: background-color 0.3s;
+            overflow-x: hidden;
+        }
+
+        .game-title {
+            text-shadow: 3px 3px 0 #FF5722, 
+                        -1px -1px 0 #FF5722, 
+                        1px -1px 0 #FF5722, 
+                        -1px 1px 0 #FF5722, 
+                        1px 1px 0 #FF5722;
+        }
+
+        .dark .game-title {
+            text-shadow: 3px 3px 0 #FF7043, 
+                        -1px -1px 0 #FF7043, 
+                        1px -1px 0 #FF7043, 
+                        -1px 1px 0 #FF7043, 
+                        1px 1px 0 #FF7043;
+        }
+
+        .hole {
+            background-color: var(--hole);
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 10px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .chicken, .bomb {
+            position: absolute;
+            bottom: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.1s ease-in;
+            cursor: pointer;
+            width: 80%;
+            height: auto;
+        }
+
+        .chicken.active, .bomb.active {
+            bottom: 0;
+        }
+
+        .grass {
+            position: absolute;
+            top: -10px;
+            width: 100%;
+            height: 20px;
+            background-color: var(--grass);
+            border-radius: 50% 50% 0 0;
+            z-index: 10;
+        }
+
+        .mallet {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0E1MjkyOSIgZD0iTTgsM0wxMiwxVjIuNUg4WiIvPjxwYXRoIGZpbGw9IiM4QjRDMjkiIGQ9Ik0xMiwyLjVWMUwxNiwzSDE2VjIuNUgxMloiLz48cGF0aCBmaWxsPSIjQjc2RTRBIiBkPSJNOCwzVjguNUgxNlYzSDE2TDEyLDEuNUw4LDNaIi8+PHBhdGggZmlsbD0iIzc4MzQxQyIgZD0iTTE1LDguNUgxNlYxOUgxNVoiLz48cGF0aCBmaWxsPSIjNjIyNjEzIiBkPSJNOSw4LjVIOFYxOUg5WiIvPjxwYXRoIGZpbGw9IiM4QjRDMjkiIGQ9Ik05LDguNUgxNVYxOUg5WiIvPjxwYXRoIGZpbGw9IiM1RjNCMjEiIGQ9Ik0xMiwxOVYyM0gxMlYxOUgxNUgxMkg5SDB6Ii8+PC9zdmc+');
+            pointer-events: none;
+            z-index: 100;
+            transform: translate(-50%, -50%) rotate(45deg);
+            display: none;
+        }
+
+        .mallet.active {
+            display: block;
+            animation: swing 0.2s ease-in-out;
+        }
+
+        @keyframes swing {
+            0% { transform: translate(-50%, -50%) rotate(45deg) scale(1); }
+            50% { transform: translate(-50%, -50%) rotate(45deg) scale(1.2); }
+            100% { transform: translate(-50%, -50%) rotate(45deg) scale(1); }
+        }
+
+        .game-area {
+            background: linear-gradient(to bottom, #8bd645 0%, #66a103 100%);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .dark .game-area {
+            background: linear-gradient(to bottom, #557d2e 0%, #446b02 100%);
+        }
+
+        .score-display {
+            background-color: var(--primary);
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            padding: 10px 15px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .score-display:hover {
+            transform: scale(1.05);
+        }
+
+        .countdown {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .hit-effect {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            animation: floatUp 1s ease-out;
+            z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        .player-list-item {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            color: #FFF;
+            transition: all 0.2s;
+        }
+
+        .player-list-item:hover {
+            transform: translateX(5px);
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .dark .player-list-item {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .dark .player-list-item:hover {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background-color: #f0f;
+            animation: confetti-fall 3s linear forwards;
+            z-index: 1000;
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Mallet cursor -->
+    <div id="mallet" class="mallet"></div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 class="text-4xl md:text-6xl font-bold text-center mb-6 text-yellow-500 game-title">ĐẬP GÀ MULTIPLAYER</h1>
+        <div class="w-full max-w-md p-6 rounded-2xl shadow-2xl bg-white dark:bg-gray-800">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Nhập tên người chơi</h2>
+            <input 
+                type="text" 
+                id="username-input" 
+                class="w-full p-3 text-base border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-gray-50 dark:bg-gray-700 dark:text-white" 
+                placeholder="Username của bạn"
+                maxlength="15"
+            >
+            <button id="start-btn" class="btn-primary w-full">Bắt Đầu</button>
+        </div>
+    </div>
+
+    <!-- Waiting Screen -->
+    <div id="waiting-screen" class="hidden flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 class="text-4xl md:text-6xl font-bold text-center mb-6 text-yellow-500 game-title">ĐẬP GÀ MULTIPLAYER</h1>
+        <div class="w-full max-w-4xl p-6 rounded-2xl shadow-2xl bg-white dark:bg-gray-800">
+            <h2 class="text-2xl font-bold mb-4 text-center text-gray-800 dark:text-white">Chờ đến <span class="text-yellow-500">21:30</span> để bắt đầu</h2>
+            <div class="countdown text-center mb-6" id="countdown">--:--:--</div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-xl font-bold mb-3 text-gray-800 dark:text-white">Người chơi đang tham gia</h3>
+                    <div id="player-list" class="bg-yellow-500 rounded-xl p-3 max-h-60 overflow-y-auto"></div>
+                </div>
+                
+                <div>
+                    <h3 class="text-xl font-bold mb-3 text-gray-800 dark:text-white">Hướng dẫn chơi</h3>
+                    <ul class="list-disc pl-5 space-y-2 text-gray-700 dark:text-gray-300">
+                        <li>Nhấp vào gà để kiếm điểm</li>
+                        <li>Tránh nhấp vào bom</li>
+                        <li>Trò chơi kéo dài 10 phút</li>
+                        <li>Người có điểm cao nhất là người chiến thắng</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden p-4 min-h-screen flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl md:text-4xl font-bold text-yellow-500 game-title">ĐẬP GÀ MULTIPLAYER</h1>
+            <div class="flex items-center">
+                <div class="score-display mr-4">
+                    <div class="text-sm">Điểm của bạn</div>
+                    <div id="player-score" class="text-2xl font-bold">0</div>
+                </div>
+                <div class="score-display">
+                    <div class="text-sm">Thời gian</div>
+                    <div id="game-timer" class="text-2xl font-bold">10:00</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-area flex-1 mb-4">
+            <div id="game-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
+                <!-- Holes will be generated here -->
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg">
+            <h3 class="text-xl font-bold mb-2 text-gray-800 dark:text-white">Bảng xếp hạng</h3>
+            <div id="leaderboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Leaderboard will be updated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="results-screen" class="hidden flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 class="text-4xl md:text-6xl font-bold text-center mb-6 text-yellow-500 game-title">KẾT THÚC GAME</h1>
+        <div class="w-full max-w-lg p-6 rounded-2xl shadow-2xl bg-white dark:bg-gray-800">
+            <h2 class="text-2xl font-bold mb-4 text-center text-gray-800 dark:text-white">Xếp hạng cuối cùng</h2>
+            
+            <div id="final-leaderboard" class="mb-6 max-h-80 overflow-y-auto"></div>
+            
+            <div id="winner-announcement" class="text-center p-4 bg-yellow-100 dark:bg-yellow-900 rounded-xl mb-6">
+                <h3 class="text-xl font-bold text-yellow-600 dark:text-yellow-400">Người chiến thắng</h3>
+                <p id="winner-name" class="text-2xl font-bold text-yellow-700 dark:text-yellow-300">--</p>
+            </div>
+            
+            <button id="play-again-btn" class="btn-primary w-full">Chơi Lại</button>
+        </div>
+    </div>
+
+    <script>
+        // Check for dark mode preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Game variables
+        let socket;
+        let username = '';
+        let playerScore = 0;
+        let gameStarted = false;
+        let gameEnded = false;
+        let targetStartTime; // Will be set when joining
+
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const waitingScreen = document.getElementById('waiting-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const usernameInput = document.getElementById('username-input');
+        const startBtn = document.getElementById('start-btn');
+        const playerList = document.getElementById('player-list');
+        const playerScoreElement = document.getElementById('player-score');
+        const gameTimer = document.getElementById('game-timer');
+        const gameGrid = document.getElementById('game-grid');
+        const countdown = document.getElementById('countdown');
+        const leaderboard = document.getElementById('leaderboard');
+        const finalLeaderboard = document.getElementById('final-leaderboard');
+        const winnerName = document.getElementById('winner-name');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const mallet = document.getElementById('mallet');
+
+        // Initialize game
+        function initGame() {
+            // Generate chicken holes
+            gameGrid.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const hole = document.createElement('div');
+                hole.className = 'hole aspect-square';
+                hole.innerHTML = `
+                    <div class="grass"></div>
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0ZGRTc3NyIgZD0iTTEyLDJDMTUuMzEsMkgxNy4xMkMxOC43NiwyIDIwLDMuMjQgMjAsNC44OEMyMCw3LjM4IDE3LjMxLDkuMjIgMTUsMTAuNUMxNCwxMS4xNSAxMywxMi4wNSAxMywxM0MxMywxMy45NyAxMy45LDE1LjUgMTUsMTYuNUMxNywxOCAxOS4xMSwyMCAyMCwyMUgxMkg0QzUsMjAgNi44OCwxOSA4LjUsMThDOS41LDE3LjUgMTEsMTYuMjUgMTEsMTQuNUMxMSwxMy41IDEwLDEyLjEgOSwxMS41QzYsOSA0LDcgNCw0LjlDNCwzLjI0IDUuMjQsMiA2Ljg4LDJIOSIvPjxwYXRoIGZpbGw9IiNGRjlBMDAiIGQ9Ik05LDEzSDcuNVY5SDlWMTNaTTE2LjUsMTNIMTVWOUgxNi41VjEzWiIvPjxwYXRoIGZpbGw9IiNFNjU3MDAiIGQ9Ik0xMywyMEgxMUMxMSwxOSAxMC40NiwxNyA5LDE2SDE1QzEzLjYsMTcgMTMsMTkgMTMsMjBaIi8+PHBhdGggZmlsbD0iI0ZGNTU1NSIgZD0iTTEyLDcuNUMxMC4yOCw3LjUgOS40LDguMjUgOSw5LjVDMTAsOS41IDExLjUsOS41IDEyLDkuNUMxMi4zMSw5LjUgMTQsOS40NSAxNSw5LjVDMTQuNSw4LjIgMTMuNzgsNy41IDEyLDcuNVoiLz48L3N2Zz4=" 
+                        class="chicken" data-index="${i}" alt="Chicken">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzMzMzMzMyIgZD0iTTExLjUsNUw4LDJMMiw4TDUsMTEuNUwxMS41LDVaIi8+PHBhdGggZmlsbD0iI0ZGRTc3NyIgZD0iTTIwLDE1TDIwLDEyLjUiLz48cGF0aCBmaWxsPSIjRkZDRTAwIiBkPSJNMTMuNSw3TDEwLDEwLjVMMTMuNSwxNEwxNywxMC41TDEzLjUsN1oiLz48cGF0aCBmaWxsPSIjRkYwMDAwIiBkPSJNMjAsNUgxNy41TDE1LDEuNUwxMi41LDVIMTBMMTI1LDEwLjVMMTAsMTZIMTIuNUwxNSwxOS41TDE3LjUsMTZIMjBMMTcuNSwxMC41TDIwLDVaIi8+PC9zdmc+" 
+                        class="bomb" data-index="${i}" alt="Bomb">
+                `;
+                gameGrid.appendChild(hole);
+            }
+            
+            // Add click listeners to chickens and bombs
+            document.querySelectorAll('.chicken, .bomb').forEach(element => {
+                element.addEventListener('click', handleClick);
+            });
+            
+            // Follow cursor with mallet
+            document.addEventListener('mousemove', (e) => {
+                mallet.style.left = e.pageX + 'px';
+                mallet.style.top = e.pageY + 'px';
+            });
+            
+            // Ensure the mallet works on touch devices
+            document.addEventListener('touchmove', (e) => {
+                if (e.touches && e.touches[0]) {
+                    mallet.style.left = e.touches[0].pageX + 'px';
+                    mallet.style.top = e.touches[0].pageY + 'px';
+                }
+            });
+        }
+
+        // Initialize socket connection to the real server
+        function initSocket() {
+            // Connect to the Socket.io server
+            // When deploying to Vercel, it will use the same origin as the client
+            const serverUrl = window.location.hostname === 'localhost' 
+                ? 'http://localhost:3000' // Development server
+                : window.location.origin; // Production server (Vercel)
+                
+            socket = io(serverUrl, {
+                transports: ['websocket', 'polling']
+            });
+            
+            // Socket connection event handlers
+            socket.on('connect', () => {
+                console.log('Connected to server with ID:', socket.id);
+            });
+            
+            socket.on('connect_error', (err) => {
+                console.error('Connection error:', err);
+                alert('Không thể kết nối đến server. Vui lòng thử lại sau.');
+            });
+            
+            // Handle receiving the player list
+            socket.on('playerList', (players) => {
+                updatePlayerList(players);
+                // Also update the leaderboard
+                updateLeaderboard(players);
+            });
+            
+            // Handle receiving the game start time
+            socket.on('gameStartTime', (data) => {
+                targetStartTime = new Date(data.startTime);
+                console.log('Game will start at:', targetStartTime);
+            });
+            
+            // Handle game started event
+            socket.on('gameStarted', (data) => {
+                console.log('Game started!');
+                gameEndTime = new Date(data.endTime);
+                startGame();
+            });
+            
+            // Handle game ended event
+            socket.on('gameEnded', (data) => {
+                console.log('Game ended!');
+                endGame();
+                // Update final leaderboard with server data
+                updateLeaderboard(data.leaderboard);
+            });
+            
+            // Handle receiving updated leaderboard
+            socket.on('leaderboard', (players) => {
+                updateLeaderboard(players);
+            });
+            
+            // By default, set target start time to next 21:30
+            // (this will be overridden when server sends actual time)
+            const now = new Date();
+            const targetHour = 21;
+            const targetMinute = 30;
+            targetStartTime = new Date(now);
+            targetStartTime.setHours(targetHour, targetMinute, 0, 0);
+            
+            if (targetStartTime < now) {
+                // If 21:30 today has passed, set to tomorrow
+                targetStartTime.setDate(targetStartTime.getDate() + 1);
+            }
+        }
+
+        // Generate random ID (for demo purposes)
+        function generateRandomId() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        // Simulate players joining (for demo purposes)
+        function simulatePlayersJoining(playerUsername) {
+            const players = [
+                {id: 'player1', username: 'GàCon123', score: 0},
+                {id: 'player2', username: 'SuperWhacker', score: 0},
+                {id: 'player3', username: 'ChickenHunter', score: 0},
+                {id: 'player4', username: 'BombDodger', score: 0},
+                {id: 'player5', username: 'FastClicker', score: 0},
+                {id: socket.id, username: playerUsername, score: 0}
+            ];
+            
+            // Update player list
+            updatePlayerList(players);
+            
+            // Also initialize the leaderboard
+            updateLeaderboard(players);
+        }
+
+        // Update player list in waiting room
+        function updatePlayerList(players) {
+            playerList.innerHTML = '';
+            players.forEach(player => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'player-list-item';
+                playerItem.innerHTML = `
+                    ${player.username} ${player.id === socket.id ? '(Bạn)' : ''}
+                `;
+                playerList.appendChild(playerItem);
+            });
+        }
+
+        // Update the leaderboard
+        function updateLeaderboard(playersData) {
+            // Ensure playersData is an array
+            const players = Array.isArray(playersData) ? playersData : [playersData];
+            
+            // Get current leaderboard data
+            const currentPlayers = {};
+            document.querySelectorAll('.leaderboard-item').forEach(item => {
+                const id = item.dataset.id;
+                const score = parseInt(item.dataset.score || 0);
+                const username = item.dataset.username;
+                currentPlayers[id] = { id, username, score };
+            });
+            
+            // Update or add new players
+            players.forEach(player => {
+                if (currentPlayers[player.id]) {
+                    currentPlayers[player.id].score = player.score;
+                } else {
+                    currentPlayers[player.id] = player;
+                }
+            });
+            
+            // Convert to array and sort by score
+            const sortedPlayers = Object.values(currentPlayers)
+                .sort((a, b) => b.score - a.score);
+            
+            // Update the in-game leaderboard
+            leaderboard.innerHTML = '';
+            sortedPlayers.forEach((player, index) => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'leaderboard-item bg-gray-100 dark:bg-gray-700 rounded-lg p-3 flex justify-between items-center';
+                playerItem.dataset.id = player.id;
+                playerItem.dataset.score = player.score;
+                playerItem.dataset.username = player.username;
+                
+                const isCurrentPlayer = player.id === socket.id;
+                if (isCurrentPlayer) {
+                    playerItem.classList.add('border-2', 'border-yellow-500');
+                }
+                
+                playerItem.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="font-bold mr-2 ${index < 3 ? 'text-yellow-500' : 'text-gray-500'}">#${index + 1}</span>
+                        <span class="font-medium text-gray-800 dark:text-white">${player.username} ${isCurrentPlayer ? '(Bạn)' : ''}</span>
+                    </div>
+                    <span class="font-bold text-yellow-600 dark:text-yellow-400">${player.score}</span>
+                `;
+                leaderboard.appendChild(playerItem);
+            });
+            
+            // If game is ended, update the final leaderboard too
+            if (gameEnded) {
+                finalLeaderboard.innerHTML = '';
+                sortedPlayers.forEach((player, index) => {
+                    const playerItem = document.createElement('div');
+                    playerItem.className = 'p-3 mb-2 rounded-lg flex justify-between items-center';
+                    
+                    // Special styling for top 3
+                    if (index === 0) {
+                        playerItem.classList.add('bg-yellow-100', 'dark:bg-yellow-900');
+                    } else if (index === 1) {
+                        playerItem.classList.add('bg-gray-200', 'dark:bg-gray-800');
+                    } else if (index === 2) {
+                        playerItem.classList.add('bg-amber-100', 'dark:bg-amber-900');
+                    } else {
+                        playerItem.classList.add('bg-gray-100', 'dark:bg-gray-700');
+                    }
+                    
+                    const isCurrentPlayer = player.id === socket.id;
+                    if (isCurrentPlayer) {
+                        playerItem.classList.add('border-2', 'border-yellow-500');
+                    }
+                    
+                    playerItem.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="font-bold mr-2 text-xl ${index < 3 ? 'text-yellow-500' : 'text-gray-500'}">#${index + 1}</span>
+                            <span class="font-medium text-gray-800 dark:text-white">${player.username} ${isCurrentPlayer ? '(Bạn)' : ''}</span>
+                        </div>
+                        <span class="font-bold text-yellow-600 dark:text-yellow-400">${player.score}</span>
+                    `;
+                    finalLeaderboard.appendChild(playerItem);
+                });
+                
+                // Set the winner name
+                if (sortedPlayers.length > 0) {
+                    winnerName.textContent = sortedPlayers[0].username;
+                    createConfetti();
+                }
+            }
+        }
+
+        // Handle click on chicken or bomb
+        function handleClick(event) {
+            if (!gameStarted || gameEnded) return;
+            
+            const element = event.target;
+            if (!element.classList.contains('active')) return;
+            
+            // Show mallet animation
+            mallet.style.left = event.pageX + 'px';
+            mallet.style.top = event.pageY + 'px';
+            mallet.classList.add('active');
+            setTimeout(() => mallet.classList.remove('active'), 200);
+            
+            // Hide the element
+            element.classList.remove('active');
+            
+            // Update score
+            if (element.classList.contains('chicken')) {
+                playerScore += 10;
+                showHitEffect(event.pageX, event.pageY, '+10', '#4CAF50');
+            } else if (element.classList.contains('bomb')) {
+                playerScore = Math.max(0, playerScore - 15);
+                showHitEffect(event.pageX, event.pageY, '-15', '#F44336');
+            }
+            
+            playerScoreElement.textContent = playerScore;
+            
+            // Send score to server
+            socket.emit('score', {
+                username: username,
+                score: playerScore
+            });
+        }
+
+        // Show hit effect (+10 or -15)
+        function showHitEffect(x, y, text, color) {
+            const effect = document.createElement('div');
+            effect.className = 'hit-effect';
+            effect.textContent = text;
+            effect.style.color = color;
+            effect.style.left = x + 'px';
+            effect.style.top = y + 'px';
+            document.body.appendChild(effect);
+            
+            setTimeout(() => {
+                document.body.removeChild(effect);
+            }, 1000);
+        }
+
+        // Start the game countdown
+        function startGameCountdown() {
+            const countdownInterval = setInterval(() => {
+                const now = new Date();
+                const diff = targetStartTime - now;
+                
+                if (diff <= 0) {
+                    clearInterval(countdownInterval);
+                    startGame();
+                } else {
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                    
+                    countdown.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        // Start the game
+        function startGame() {
+            gameStarted = true;
+            gameEnded = false;
+            waitingScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // Start the game timer based on server's end time
+            const gameTimerInterval = setInterval(() => {
+                const now = new Date();
+                // gameEndTime is set from the server in the gameStarted event
+                const timeRemaining = Math.max(0, Math.floor((gameEndTime - now) / 1000));
+                
+                const minutes = Math.floor(timeRemaining / 60);
+                const seconds = timeRemaining % 60;
+                gameTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(gameTimerInterval);
+                    // The server will send gameEnded event, but just in case of network issues
+                    // we'll call endGame() locally too
+                    if (gameStarted && !gameEnded) {
+                        endGame();
+                    }
+                }
+            }, 1000);
+            
+            // Start chicken and bomb appearances
+            startChickenAndBombAppearances();
+        }
+
+        // End the game
+        function endGame() {
+            gameStarted = false;
+            gameEnded = true;
+            gameScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+            
+            // Final leaderboard will be set from server data in the gameEnded event
+        }
+
+        // Start chicken and bomb appearances
+        function startChickenAndBombAppearances() {
+            const chickens = document.querySelectorAll('.chicken');
+            const bombs = document.querySelectorAll('.bomb');
+            
+            function showRandomChicken() {
+                if (!gameStarted || gameEnded) return;
+                
+                // Pick a random chicken
+                const randomIndex = Math.floor(Math.random() * chickens.length);
+                const chicken = chickens[randomIndex];
+                
+                // Make sure the corresponding bomb is not active
+                const correspondingBomb = bombs[randomIndex];
+                if (correspondingBomb.classList.contains('active')) return;
+                
+                // Show the chicken
+                chicken.classList.add('active');
+                
+                // Hide the chicken after a random time (500-1500ms)
+                const hideDelay = 500 + Math.random() * 1000;
+                setTimeout(() => {
+                    chicken.classList.remove('active');
+                }, hideDelay);
+                
+                // Schedule next chicken appearance
+                setTimeout(showRandomChicken, 300 + Math.random() * 500);
+            }
+            
+            function showRandomBomb() {
+                if (!gameStarted || gameEnded) return;
+                
+                // Pick a random bomb
+                const randomIndex = Math.floor(Math.random() * bombs.length);
+                const bomb = bombs[randomIndex];
+                
+                // Make sure the corresponding chicken is not active
+                const correspondingChicken = chickens[randomIndex];
+                if (correspondingChicken.classList.contains('active')) return;
+                
+                // Show the bomb
+                bomb.classList.add('active');
+                
+                // Hide the bomb after a random time (500-1200ms)
+                const hideDelay = 500 + Math.random() * 700;
+                setTimeout(() => {
+                    bomb.classList.remove('active');
+                }, hideDelay);
+                
+                // Schedule next bomb appearance
+                setTimeout(showRandomBomb, 1000 + Math.random() * 2000);
+            }
+            
+            // Start the appearances
+            showRandomChicken();
+            showRandomBomb();
+        }
+
+        // Removed simulate function - we'll be using real data from socket.io server
+
+        // Create confetti effect for winner
+        function createConfetti() {
+            const colors = ['#FFD700', '#FF9633', '#FF5733', '#C70039', '#900C3F', '#581845'];
+            
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.width = (Math.random() * 10 + 5) + 'px';
+                confetti.style.height = (Math.random() * 10 + 5) + 'px';
+                confetti.style.animationDelay = Math.random() * 3 + 's';
+                document.body.appendChild(confetti);
+                
+                // Remove confetti after animation
+                setTimeout(() => {
+                    document.body.removeChild(confetti);
+                }, 3000);
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Start button event listener
+            startBtn.addEventListener('click', () => {
+                username = usernameInput.value.trim();
+                if (username.length < 3) {
+                    alert('Vui lòng nhập tên người chơi (ít nhất 3 ký tự)');
+                    return;
+                }
+                
+                initSocket();
+                loginScreen.classList.add('hidden');
+                waitingScreen.classList.remove('hidden');
+                
+                // Join the game
+                socket.emit('join', { username });
+                
+                // Start countdown
+                startGameCountdown();
+            });
+            
+            // Play again button
+            playAgainBtn.addEventListener('click', () => {
+                location.reload();
+            });
+            
+            // Initialize the game grid
+            initGame();
+        });
+
+        // For Vercel deployment, the following would be needed:
+        // index.js would contain the client-side code (much of what's in this script)
+        // server.js would contain the server-side Socket.io implementation
+        // Here's a minimal implementation:
+
+        /*
+        // server.js for Vercel deployment
+        const http = require('http');
+        const { Server } = require('socket.io');
+        const express = require('express');
+        const app = express();
+        const server = http.createServer(app);
+        const io = new Server(server);
+
+        // Store players and game state
+        const players = {};
+        let gameStarted = false;
+        let gameStartTime = null;
+
+        // Function to get the next 21:30 time
+        function getNext2130() {
+            const now = new Date();
+            const targetTime = new Date(now);
+            targetTime.setHours(21, 30, 0, 0);
+            if (targetTime < now) {
+                // If 21:30 today has passed, set to tomorrow
+                targetTime.setDate(targetTime.getDate() + 1);
+            }
+            return targetTime;
+        }
+
+        // Set game start time to the next 21:30
+        gameStartTime = getNext2130();
+
+        // Socket.io connection handling
+        io.on('connection', (socket) => {
+            console.log('User connected:', socket.id);
+            
+            // Handle player joining
+            socket.on('join', (data) => {
+                players[socket.id] = {
+                    id: socket.id,
+                    username: data.username,
+                    score: 0
+                };
+                
+                // Send all players list to everyone
+                io.emit('playerList', Object.values(players));
+                
+                // Send game start time to the new player
+                socket.emit('gameStartTime', { startTime: gameStartTime.getTime() });
+            });
+            
+            // Handle score updates
+            socket.on('score', (data) => {
+                if (players[socket.id]) {
+                    players[socket.id].score = data.score;
+                    
+                    // Send updated leaderboard to all players
+                    io.emit('leaderboard', Object.values(players));
+                }
+            });
+            
+            // Handle disconnection
+            socket.on('disconnect', () => {
+                console.log('User disconnected:', socket.id);
+                delete players[socket.id];
+                
+                // Send updated player list
+                io.emit('playerList', Object.values(players));
+            });
+        });
+
+        // Serve static files
+        app.use(express.static('public'));
+
+        // Start server
+        const PORT = process.env.PORT || 3000;
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+        */
+    </script>
+</body>
+</html>
